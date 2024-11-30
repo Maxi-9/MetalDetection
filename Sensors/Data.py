@@ -1,5 +1,6 @@
 class BaseTable:
-    def create_str(self, table_name):
+    @staticmethod
+    def create_str(table_name):
         raise NotImplementedError
 
     def add_str(self, table_name):
@@ -65,12 +66,13 @@ class F9DataFrame(BaseTable):
         super().__init__(d_time)
 
 
-class MagnetometerDataFrame(BaseTable):
+class MagDataFrame(BaseTable):
     """
     Class for only magnetometer sensor data
     """
 
-    def create_str(self, table_name):
+    @staticmethod
+    def create_str(table_name):
         return f"CREATE TABLE {table_name} (d_time TEXT, Hx REAL, Hy REAL, Hz REAL)"
 
     def add_str(self, table_name):
@@ -102,7 +104,8 @@ class Marker(BaseTable):
     Class that just takes the time from the base class and does nothing with it
     """
 
-    def create_str(self, table_name):
+    @staticmethod
+    def create_str(table_name):
         return f"CREATE TABLE {table_name} (d_time TEXT)"
 
     def add_str(self, table_name):

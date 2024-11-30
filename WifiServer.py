@@ -8,6 +8,7 @@ from dataCollection import DataCollector
 import json
 import os
 import subprocess
+import traceback
 
 # Device password the one hosting server:
 devicePass = "blank1"  # Used for shutdown func below
@@ -15,10 +16,14 @@ devicePass = "blank1"  # Used for shutdown func below
 
 def shutdown():
     try:
-        subprocess.run(['sudo', '-S', 'shutdown', '-h', 'now'], check=True, input=f'{devicePass}\n', encoding='utf-8')
+        subprocess.run(
+            ["sudo", "-S", "shutdown", "-h", "now"],
+            check=True,
+            input=f"{devicePass}\n",
+            encoding="utf-8",
+        )
     except subprocess.CalledProcessError as e:
         print(f"Command '{e.cmd}' returned non-zero exit status {e.returncode}")
-
 
 
 # Class that represents settings(used for only sending to client)
@@ -43,9 +48,9 @@ class SendTypes(Enum):
     Closing = "closing"
 
 
-class socketServer():
+class socketServer:
     def send_settings(self, dataCollect: DataCollector):
-        setting = dataSettings(dataCollect,self.shouldSendFPS)
+        setting = dataSettings(dataCollect, self.shouldSendFPS)
         self.send_data(SendTypes.Requested, setting.to_json())
 
     # only for received "command"s
@@ -71,34 +76,34 @@ class socketServer():
             self.send_data(SendTypes.Error, f"Unknown command: {command}")
             return
 
-
     def received_action(self, data: str):
         print(f"Received: {data}")
         try:
             # Parse the JSON data
             json_data = json.loads(data)
-            d_type = json_data.get('type')
-            data = json_data.get('data')
+            d_type = json_data.get("type")
+            data = json_data.get("data")
 
             if d_type == "command":
                 self.process_command(data)
             elif d_type == "marker":
-                self.data_collector.makeMarker(data)
+                # self.data_collector.makeMarker(data)
+                pass
             else:
                 self.send_data(SendTypes.Error, f"Unknown command type: {d_type}")
                 return
 
             self.send_data(SendTypes.Success, f"{d_type} Successful: {data}")
         except Exception as e:
-            self.send_data(SendTypes.Error, str(e))  # send the error to the client
-
-
+            print(e.__str__())
+            raise e
+            # self.send_data(SendTypes.Error, str(e))  # send the error to the client
 
     def send_data(self, sType: SendTypes, data: str):
         if self.client_socket is not None:
             m_json = json.dumps({"type": sType.value, "data": data})
             print(f"Sent: {m_json}")
-            self.client_socket.sendall(m_json.encode('utf-8'))  # Send the data
+            self.client_socket.sendall(m_json.encode("utf-8"))  # Send the data
 
     def __init__(self):
         self.client_socket = self.client_address = None
@@ -109,7 +114,7 @@ class socketServer():
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        self.server_socket.bind(('0.0.0.0', 12345))  # use 'localhost' for LAN
+        self.server_socket.bind(("0.0.0.0", 12345))  # use 'localhost' for LAN
         self.server_socket.listen(1)
 
     def start_sending_updates(self):
@@ -120,12 +125,9 @@ class socketServer():
                 self.send_settings(self.data_collector)
             time.sleep(0.1)
 
-
-
-
     # Starts server synchronous
     def start_server(self):
-        threading.Thread(target=self.start_sending_updates,daemon=True).start()
+        threading.Thread(target=self.start_sending_updates, daemon=True).start()
 
         print("Server started. Waiting for connections...")
         try:
@@ -135,7 +137,7 @@ class socketServer():
 
                 while True:
                     try:
-                        data = self.client_socket.recv(1024).decode('utf-8')
+                        data = self.client_socket.recv(1024).decode("utf-8")
                     except ConnectionResetError:
                         print("Error: Connection was broken!")
                         data = None

@@ -66,11 +66,11 @@ class Cube:
 
 
 def startRows(cube):
-    cube.row = cube.sensor.get_data()
+    cube.row = cube.sensor.get_raw_data()
     print(cube.sensor.ser.name, "... Started")
     while True:
         cube.sensor.flush()
-        cube.row = cube.sensor.get_data()
+        cube.row = cube.sensor.get_raw_data()
         time.sleep(0.02)
 
 

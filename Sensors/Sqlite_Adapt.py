@@ -5,29 +5,7 @@ import time
 from collections import defaultdict
 
 
-class Store_Type:
-    def __init__(self):
-        raise NotImplementedError("Don't create from base class.")
 
-    def _table_def(self):
-        raise NotImplementedError()
-
-
-# Custom Row featcher
-class Rows:
-    def __init__(self, c: sqlite3.Cursor, query: str, by: int):
-        self.hasRows = True
-        self.cur = c
-        self.by = by
-
-        self.cur.execute(query)
-
-    def getNext(self):
-        rows = self.cur.fetchmany(self.by)
-        if rows is None or len(rows) == 0:
-            self.hasRows = False
-            return []
-        return rows
 
 
 class sqliteManager:
@@ -45,7 +23,6 @@ class sqliteManager:
         self.FPS_start = None
         self.FPS_count = defaultdict(int)
         self.FPS_now = defaultdict(float)
-        self.created_set = set(str)
 
         self.FPS_start = float(time.perf_counter())
 
@@ -76,11 +53,20 @@ class sqliteManager:
         self.data_queue.put((data, cur_table))
         self.countPacket(cur_table)
 
-    def execute(self, c: sqlite3.Cursor, query: str):
+    def _execute(self, c: sqlite3.Cursor, query: str):
         c.execute(query)
 
     def _db_worker(self, dbname):
-        conn = sqlite3.connect(dbname)
+        conn = sqlite3.connect(dbname, isolation_level=None)
+        # Connect to the SQLite database with the specified optimizations
+
+        # These may increase chance of corruption if loss of power occurs during access
+        conn.execute("PRAGMA journal_mode=MEMORY")
+        conn.execute("PRAGMA synchronous=OFF")
+
+        # Set the locking mode to exclusive
+        conn.execute("PRAGMA locking_mode=EXCLUSIVE")
+
         conn.isolation_level = None
         cur = conn.cursor()
         cur.execute("BEGIN")
@@ -88,19 +74,20 @@ class sqliteManager:
         start_time = time.perf_counter()
         while not self.data_queue.empty() or not self.stop_requested.is_set():
             # Get the next data struct from the queue
+            got_data = False
             try:
                 data, cur_table = self.data_queue.get(timeout=1)
+                got_data = True
             except queue.Empty:
                 continue
 
-            # Lock the thread while writing to the database to ensure thread safety
+            # Lock the thread while writing to the database
             with self.lock:
-                if cur_table not in self.created_set:
-                    self.execute(cur, data.create_str(cur_table))
-                self.execute(cur, data.add_str(cur_table))
+                # print(data)
+                self._execute(cur, data)
 
                 # Commit every 3 seconds or if count reaches 200
-                if time.perf_counter() - start_time > 3:
+                if time.perf_counter() - start_time > 3 and got_data:
                     print("Commit")
                     conn.commit()
                     cur.execute("BEGIN")

@@ -13,13 +13,13 @@ def speedTest(device: str):
 
     time.sleep(1)
 
-    row = sensor.get_data()
+    row = sensor.get_raw_data()
     print(sensor.ser.name, "... Started")
 
     i = 0
     start_time = float(time.time())
     while start_time > (float(time.time()) - timer):
-        row = sensor.get_data()
+        row = sensor.get_raw_data()
         # Debug: Print data, or save to sql file
         manager.write_row(row, tbName)
         # row.printData()
